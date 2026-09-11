@@ -1,24 +1,28 @@
-name: PL/SQL Autograding
+name: Autograding PL/SQL Assignment
 
-on:
-  push:
-  pull_request:
+on: [push, pull_request]
 
 jobs:
   grade:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
+      - name: Set up Oracle Database (Container)
+        run: |
+          docker run -d --name oracle-db -p 1521:1521 gvenzl/oracle-free:latest
+          # Wait for database initialization
+          until docker logs oracle-db 2>&1 | grep -q "DATABASE IS READY TO USE"; do
+            echo "Waiting for Oracle DB to initialize..."
+            sleep 5
+          done
 
-    - name: Install pytest
-      run: pip install pytest
-
-    - name: Run Tests
-      run: pytest tests/test_solution.py -v
+      - name: Execute Student Solution & Test Cases
+        run: |
+          docker exec -i oracle-db sqlplus -s system/12345 <<EOF
+          SET SERVEROUTPUT ON;
+          @solution.sql
+          @tests/test_solution.sql
+          EXIT;
+          EOF
